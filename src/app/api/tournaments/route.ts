@@ -33,11 +33,11 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
     const user = verifyToken(authCookie || authHeader || '');
 
-    if (!user || (user.role !== 'ARBITER' && user.role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Unauthorized: Arbiter or Admin role required' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Please sign in to create a tournament' }, { status: 401 });
     }
 
-    const { name, description, timeControl, roundsCount } = await req.json();
+    const { name, description, timeControl, roundsCount, format = 'SWISS', startAs = 'PLAYER' } = await req.json();
 
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Tournament name is required' }, { status: 400 });
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         timeControl: timeControl || '10+5',
+        format: format || 'SWISS',
         status: 'ACTIVE',
         createdById: user.id,
         rounds: {
@@ -59,10 +60,22 @@ export async function POST(req: NextRequest) {
           })),
         },
       },
-      include: { rounds: true },
+      include: { rounds: true, players: true },
     });
 
-    return NextResponse.json({ success: true, tournament });
+    // If starting as a Player, automatically register the creator in the tournament player roster
+    if (startAs === 'PLAYER' && user.name) {
+      await prisma.tournamentPlayer.create({
+        data: {
+          tournamentId: tournament.id,
+          name: user.name.trim(),
+          rating: 1500,
+          seed: 1,
+        },
+      });
+    }
+
+    return NextResponse.json({ success: true, tournament, startAs });
   } catch (error: any) {
     console.error('Error creating tournament:', error);
     return NextResponse.json({ error: 'Failed to create tournament' }, { status: 500 });

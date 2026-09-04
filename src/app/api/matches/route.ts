@@ -46,8 +46,8 @@ export async function POST(req: NextRequest) {
     const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
     const user = verifyToken(authCookie || authHeader || '');
 
-    if (!user || (user.role !== 'ARBITER' && user.role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Unauthorized: Arbiter or Admin role required' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Please sign in' }, { status: 401 });
     }
 
     const {
@@ -57,6 +57,18 @@ export async function POST(req: NextRequest) {
       blackPlayerName,
       timeControl = '10+5',
     } = await req.json();
+
+    let isAuthorized = user.role === 'ARBITER' || user.role === 'ADMIN';
+    if (!isAuthorized && tournamentId) {
+      const tourney = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+      if (tourney && tourney.createdById === user.id) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Arbiter or Tournament Creator required' }, { status: 403 });
+    }
 
     const { initialMs, incrementMs } = parseTimeControl(timeControl);
 

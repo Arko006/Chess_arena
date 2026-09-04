@@ -28,11 +28,59 @@ export async function POST(
     const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
     const user = verifyToken(authCookie || authHeader || '');
 
-    if (!user || (user.role !== 'ARBITER' && user.role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Unauthorized: Arbiter access required' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Please sign in' }, { status: 401 });
     }
 
-    const { players: playerList, name, rating = 1500, seed } = await req.json();
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
+    }
+
+    const body = await req.json();
+    const { players: playerList, name, rating = 1500, seed, joinSelf } = body;
+
+    // Self-join: any logged in player can register themselves into the tournament
+    if (joinSelf) {
+      const playerName = (name || user.name || '').trim();
+      if (!playerName) {
+        return NextResponse.json({ error: 'Player name is required' }, { status: 400 });
+      }
+
+      const existingPlayer = await prisma.tournamentPlayer.findUnique({
+        where: {
+          tournamentId_name: {
+            tournamentId: params.id,
+            name: playerName,
+          },
+        },
+      });
+
+      if (existingPlayer) {
+        return NextResponse.json({ success: true, message: 'Already registered in this tournament', player: existingPlayer });
+      }
+
+      const count = await prisma.tournamentPlayer.count({ where: { tournamentId: params.id } });
+      const player = await prisma.tournamentPlayer.create({
+        data: {
+          tournamentId: params.id,
+          name: playerName,
+          rating: rating ? parseInt(rating as any, 10) : 1500,
+          seed: count + 1,
+        },
+      });
+
+      return NextResponse.json({ success: true, player });
+    }
+
+    // Administrative roster management requires Arbiter, Admin, or Tournament Creator
+    const isAuthorized = user.role === 'ARBITER' || user.role === 'ADMIN' || tournament.createdById === user.id;
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Arbiter or Tournament Creator required' }, { status: 403 });
+    }
 
     // Support single player or roster batch array
     const toInsert = playerList && Array.isArray(playerList)
@@ -81,8 +129,21 @@ export async function DELETE(
     const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
     const user = verifyToken(authCookie || authHeader || '');
 
-    if (!user || (user.role !== 'ARBITER' && user.role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Please sign in' }, { status: 401 });
+    }
+
+    const tournament = await prisma.tournament.findUnique({
+      where: { id: params.id },
+    });
+
+    if (!tournament) {
+      return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
+    }
+
+    const isAuthorized = user.role === 'ARBITER' || user.role === 'ADMIN' || tournament.createdById === user.id;
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Arbiter or Creator required' }, { status: 403 });
     }
 
     const { playerId } = await req.json();

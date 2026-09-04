@@ -37,6 +37,21 @@ async function main() {
   });
   console.log('Created Arbiter:', arbiter.email);
 
+  // Create default Player
+  const playerPassword = await bcrypt.hash('player1234', 10);
+  const player = await prisma.user.upsert({
+    where: { email: 'player@chessarena.com' },
+    update: {},
+    create: {
+      name: 'Hikaru Nakamura',
+      email: 'player@chessarena.com',
+      passwordHash: playerPassword,
+      role: 'PLAYER',
+      status: 'ACTIVE',
+    },
+  });
+  console.log('Created Demo Player:', player.email);
+
   // Check if sample tournament already exists
   const existingTournament = await prisma.tournament.findFirst({
     where: { name: 'ChessArena Masters Championship 2026' },

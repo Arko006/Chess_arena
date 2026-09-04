@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, generateToken } from '@/lib/auth';
 
@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await hashPassword(password);
-    // Allowed self-registration roles: ARBITER or PLAYER. Admin role can only be assigned by admin.
+    // Standard registration is as a PLAYER; Arbiter accounts are designated or selected per tournament
     const userRole = role === 'ARBITER' ? 'ARBITER' : 'PLAYER';
 
     const user = await prisma.user.create({

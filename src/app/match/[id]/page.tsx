@@ -37,7 +37,16 @@ export default function MatchArenaPage() {
       .then((data) => {
         if (data.match) {
           setMatchData(data.match);
-          setViewerRole(data.viewerRole);
+          if (data.viewerRole) setViewerRole(data.viewerRole);
+          if (data.assignedPlayerToken) {
+            try {
+              localStorage.setItem(`match_token_${matchId}`, data.assignedPlayerToken);
+            } catch (e) {}
+            newSocket.emit('match:join', {
+              matchId,
+              token: data.assignedPlayerToken,
+            });
+          }
         }
       })
       .catch(console.error);

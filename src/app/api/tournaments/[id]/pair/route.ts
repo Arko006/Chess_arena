@@ -27,8 +27,8 @@ export async function POST(
     const authHeader = req.headers.get('authorization')?.replace('Bearer ', '');
     const user = verifyToken(authCookie || authHeader || '');
 
-    if (!user || (user.role !== 'ARBITER' && user.role !== 'ADMIN')) {
-      return NextResponse.json({ error: 'Unauthorized: Arbiter access required' }, { status: 403 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized: Please sign in to generate pairings' }, { status: 401 });
     }
 
     const tournament = await prisma.tournament.findUnique({
@@ -50,6 +50,11 @@ export async function POST(
 
     if (!tournament) {
       return NextResponse.json({ error: 'Tournament not found' }, { status: 404 });
+    }
+
+    const isAuthorized = user.role === 'ARBITER' || user.role === 'ADMIN' || tournament.createdById === user.id;
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'Unauthorized: Only the Tournament Arbiter or Creator can generate pairings' }, { status: 403 });
     }
 
     // Determine players: use registered players or derive from existing matches
