@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  chessarena:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chessarena_app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      - JWT_SECRET=change_this_to_a_long_random_secret_in_production_2026
+      - DATABASE_URL=file:./dev.db
+    volumes:
+      # Mount prisma directory to persist SQLite database across container rebuilds
+      - chess_data:/app/prisma
+
+volumes:
+  chess_data:
+    driver: local

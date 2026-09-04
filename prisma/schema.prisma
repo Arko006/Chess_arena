@@ -1,0 +1,163 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String        @default("ARBITER") // ADMIN, ARBITER, PLAYER
+  status       String        @default("ACTIVE")  // ACTIVE, SUSPENDED
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  tournaments  Tournament[]  @relation("TournamentCreator")
+  whiteMatches Match[]       @relation("WhitePlayer")
+  blackMatches Match[]       @relation("BlackPlayer")
+}
+
+model Tournament {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  timeControl String             @default("10+5")
+  format      String             @default("SWISS") // SWISS, ROUND_ROBIN, ELIMINATION
+  totalRounds Int                @default(5)
+  status      String             @default("ACTIVE") // DRAFT, ACTIVE, COMPLETED, PAUSED
+  createdById String
+  createdBy   User               @relation("TournamentCreator", fields: [createdById], references: [id])
+  rounds      TournamentRound[]
+  matches     Match[]
+  players     TournamentPlayer[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model TournamentPlayer {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String?
+  name         String
+  rating       Int        @default(1500)
+  seed         Int        @default(1)
+  score        Float      @default(0)
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, name])
+  @@index([tournamentId])
+}
+
+model TournamentRound {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  roundNumber  Int
+  status       String     @default("ACTIVE") // PENDING, ACTIVE, COMPLETED
+  matches      Match[]
+  createdAt    DateTime   @default(now())
+}
+
+model Match {
+  id                  String            @id @default(cuid())
+  tournamentId        String?
+  tournament          Tournament?       @relation(fields: [tournamentId], references: [id], onDelete: SetNull)
+  roundId             String?
+  round               TournamentRound?  @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  whitePlayerId       String?
+  whitePlayer         User?             @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
+  blackPlayerId       String?
+  blackPlayer         User?             @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
+  whitePlayerName     String            @default("White Player")
+  blackPlayerName     String            @default("Black Player")
+  status              String            @default("PENDING") // PENDING, ACTIVE, PAUSED, FINISHED
+  result              String?           // 1-0, 0-1, 1/2-1/2, *
+  resultReason        String?           // CHECKMATE, RESIGNATION, TIMEOUT, DRAW_AGREEMENT, STALEMATE, INSUFFICIENT_MATERIAL, ARBITER_DECISION
+  fen                 String            @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  pgn                 String            @default("")
+  whiteTimeRemainingMs Int              @default(600000)
+  blackTimeRemainingMs Int              @default(600000)
+  activeColor         String            @default("w")
+  lastMoveTimestamp   DateTime?
+  timeControl         String            @default("10+5")
+  incrementMs         Int               @default(5000)
+  isPaused            Boolean           @default(false)
+  drawOfferedBy       String?           // "w" or "b"
+  createdAt           DateTime          @default(now())
+  startedAt           DateTime?
+  endedAt             DateTime?
+  invitations         MatchInvitation[]
+  moves               Move[]
+  fairPlayEvents      FairPlayEvent[]
+  fairPlayReport      FairPlayReport?
+}
+
+model MatchInvitation {
+  id         String    @id @default(cuid())
+  matchId    String
+  match      Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  color      String    // "white" or "black"
+  tokenHash  String    @unique
+  claimedBy  String?
+  claimedAt  DateTime?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([tokenHash])
+}
+
+model Move {
+  id          String   @id @default(cuid())
+  matchId     String
+  match       Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  moveNumber  Int
+  color       String   // "w" or "b"
+  fromSquare  String
+  toSquare    String
+  promotion   String?
+  san         String
+  fenAfter    String
+  pgn         String
+  timestamp   DateTime @default(now())
+  timeSpentMs Int?
+  playerId    String?
+
+  @@index([matchId, moveNumber])
+}
+
+model FairPlayEvent {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId  String?
+  color     String?  // "w" or "b"
+  eventType String   // TAB_HIDDEN, TAB_VISIBLE, FOCUS_LOST, FOCUS_GAINED, DISCONNECTED, RECONNECTED, SUSPICIOUS_LATENCY
+  metadata  String?  // JSON string
+  timestamp DateTime @default(now())
+
+  @@index([matchId, timestamp])
+}
+
+model FairPlayReport {
+  id                     String    @id @default(cuid())
+  matchId                String    @unique
+  match                  Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  status                 String    @default("CLEAN") // CLEAN, SUSPICIOUS, NEEDS_REVIEW
+  accuracyWhite          Float     @default(0)
+  accuracyBlack          Float     @default(0)
+  acplWhite              Float     @default(0)
+  acplBlack              Float     @default(0)
+  topEngineAgreementWhite Float    @default(0)
+  topEngineAgreementBlack Float    @default(0)
+  engineAnalysis         String    // JSON string containing detailed per-move analysis
+  reviewNotes            String?
+  reviewedBy             String?
+  reviewedAt             DateTime?
+  createdAt              DateTime  @default(now())
+}
