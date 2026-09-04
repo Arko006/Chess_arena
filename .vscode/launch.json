@@ -1,0 +1,21 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Launch ChessArena (npm run dev)",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Run server.js directly with tsx",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "server.js"],
+      "console": "integratedTerminal",
+      "restart": true,
+      "internalConsoleOptions": "neverOpen"
+    }
+  ]
+}
