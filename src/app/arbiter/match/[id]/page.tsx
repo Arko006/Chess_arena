@@ -10,8 +10,10 @@ import { MoveHistory } from '@/components/MoveHistory';
 import { EvaluationBar, EvaluationData } from '@/components/EvaluationBar';
 import {
   ShieldAlert, Play, Pause, Award, Handshake, XCircle, Download,
-  Copy, Check, RefreshCw, Eye, AlertTriangle, ShieldCheck, ChevronLeft, Lock, Cpu
+  Copy, Check, RefreshCw, Eye, AlertTriangle, ShieldCheck, ChevronLeft, Lock, Cpu,
+  Share2, MessageCircle, Mail, Send
 } from 'lucide-react';
+import { ShareMatchLinksModal } from '@/components/ShareMatchLinksModal';
 
 export default function ArbiterMatchMonitorPage() {
   const params = useParams();
@@ -27,6 +29,7 @@ export default function ArbiterMatchMonitorPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [evaluation, setEvaluation] = useState<EvaluationData | null>(null);
   const [evalLoading, setEvalLoading] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Fetch match details & invitations
   const fetchMatchDetails = async () => {
@@ -339,37 +342,110 @@ export default function ArbiterMatchMonitorPage() {
         <div className="lg:col-span-5 space-y-4">
           {/* Invitation Links Card */}
           <div className="bg-[#141824] border border-gray-800 rounded-2xl p-5 shadow-xl">
-            <span className="text-xs uppercase font-bold tracking-wider text-indigo-400 block mb-3">
-              Seat Invitation Access
-            </span>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs uppercase font-bold tracking-wider text-indigo-400 block">
+                Seat Invitation Access
+              </span>
+              <button
+                onClick={() => setShowShareModal(true)}
+                className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold transition-all flex items-center gap-1.5 shadow-sm"
+              >
+                <Share2 className="w-3 h-3 text-indigo-400" />
+                <span>Send & Share Links</span>
+              </button>
+            </div>
 
             <div className="space-y-3">
-              {invitations.map((inv) => (
-                <div key={inv.id} className="bg-[#1a1f2e] border border-gray-800 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-bold text-white capitalize flex items-center gap-1.5">
-                      <span
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          inv.color === 'white' ? 'bg-white' : 'bg-gray-900 border border-gray-600'
-                        }`}
-                      />
-                      {inv.color} Seat {inv.claimedBy ? `(${inv.claimedBy})` : '(Unclaimed)'}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleRegenerateInvite(inv.color)}
-                        className="p-1 rounded hover:bg-gray-700 text-[10px] text-gray-400 hover:text-white"
-                        title="Revoke & Regenerate"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                      </button>
+              {invitations.map((inv) => {
+                const inviteUrl = inv.rawToken ? `${baseUrl}/join/${inv.rawToken}` : '';
+                const playerName = inv.color === 'white'
+                  ? (gameState?.whitePlayerName || matchData?.whitePlayerName || 'White Player')
+                  : (gameState?.blackPlayerName || matchData?.blackPlayerName || 'Black Player');
+                const opponentName = inv.color === 'white'
+                  ? (gameState?.blackPlayerName || matchData?.blackPlayerName || 'Black Player')
+                  : (gameState?.whitePlayerName || matchData?.whitePlayerName || 'White Player');
+                const waMessage = `♟️ ChessArena Invitation: Hello ${playerName}, your ${inv.color.toUpperCase()} seat link vs ${opponentName} is:\n${inviteUrl}`;
+
+                return (
+                  <div key={inv.id} className="bg-[#1a1f2e] border border-gray-800 rounded-xl p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-white capitalize flex items-center gap-1.5">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            inv.color === 'white' ? 'bg-white' : 'bg-gray-900 border border-gray-600'
+                          }`}
+                        />
+                        <span>{inv.color} Seat: {playerName}</span>
+                        {inv.claimedBy && (
+                          <span className="text-[10px] text-emerald-400 font-normal">({inv.claimedBy})</span>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleRegenerateInvite(inv.color)}
+                          className="p-1 rounded hover:bg-gray-700 text-[10px] text-gray-400 hover:text-white flex items-center gap-1"
+                          title="Revoke & Regenerate"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span className="text-[10px]">Regenerate</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {inviteUrl ? (
+                      <div className="space-y-2 mt-2">
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            readOnly
+                            value={inviteUrl}
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                            className="flex-1 bg-[#10131d] border border-gray-700/80 rounded-lg px-2.5 py-1 text-[11px] text-gray-300 font-mono select-all focus:outline-none focus:border-indigo-500"
+                          />
+                          <button
+                            onClick={() => copyText(inviteUrl, inv.id)}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-all flex items-center gap-1 shadow-sm flex-shrink-0"
+                            title="Copy invitation URL"
+                          >
+                            {copiedLink === inv.id ? <Check className="w-3 h-3 text-emerald-300" /> : <Copy className="w-3 h-3" />}
+                            <span>{copiedLink === inv.id ? 'Copied' : 'Copy'}</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 pt-0.5">
+                          <button
+                            onClick={() => {
+                              window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(waMessage)}`, '_blank');
+                            }}
+                            className="px-2 py-1 rounded-md bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/40 text-[10px] font-semibold transition-colors flex items-center gap-1"
+                          >
+                            <MessageCircle className="w-2.5 h-2.5" />
+                            <span>WhatsApp</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              window.location.href = `mailto:?subject=${encodeURIComponent(`ChessArena Match: ${inv.color.toUpperCase()} Seat Link`)}&body=${encodeURIComponent(waMessage)}`;
+                            }}
+                            className="px-2 py-1 rounded-md bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 text-[10px] font-semibold transition-colors flex items-center gap-1"
+                          >
+                            <Mail className="w-2.5 h-2.5" />
+                            <span>Email</span>
+                          </button>
+
+                          <span className="text-[10px] text-gray-500 ml-auto">
+                            {inv.revokedAt ? 'Revoked' : inv.claimedBy ? 'Active' : 'Unclaimed'}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-gray-400 mt-1">
+                        Status: {inv.revokedAt ? 'Revoked' : inv.claimedBy ? 'Claimed & Active' : 'Available'}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-[11px] text-gray-400">
-                    Status: {inv.revokedAt ? 'Revoked' : inv.claimedBy ? 'Claimed & Active' : 'Available'}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -430,6 +506,19 @@ export default function ArbiterMatchMonitorPage() {
           </div>
         </div>
       </div>
+
+      {/* Share Match Links Modal */}
+      <ShareMatchLinksModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        matchId={matchId}
+        matchSummary={{
+          whitePlayerName: gameState?.whitePlayerName || matchData?.whitePlayerName,
+          blackPlayerName: gameState?.blackPlayerName || matchData?.blackPlayerName,
+          tournamentName: matchData?.tournament?.name || 'Championship Match',
+          timeControl: matchData?.timeControl,
+        }}
+      />
     </div>
   );
 }

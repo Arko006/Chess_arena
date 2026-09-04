@@ -104,6 +104,7 @@ model MatchInvitation {
   match      Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
   color      String    // "white" or "black"
   tokenHash  String    @unique
+  rawToken   String?
   claimedBy  String?
   claimedAt  DateTime?
   expiresAt  DateTime

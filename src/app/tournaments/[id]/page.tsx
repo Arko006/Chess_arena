@@ -6,9 +6,10 @@ import Link from 'next/link';
 import {
   Trophy, Clock, Users, Swords, Plus, ArrowLeft, ArrowRight,
   Eye, Check, Copy, ChevronRight, Zap, RefreshCw, UserPlus, Table, Award, Shield,
-  FileText, ListPlus, Trash2, Sparkles, ExternalLink, Calendar
+  FileText, ListPlus, Trash2, Sparkles, ExternalLink, Calendar, Share2, Send, MessageCircle
 } from 'lucide-react';
 import { Crosstable } from '@/components/Crosstable';
+import { ShareMatchLinksModal } from '@/components/ShareMatchLinksModal';
 
 export default function TournamentDetailPage() {
   const params = useParams();
@@ -35,6 +36,9 @@ export default function TournamentDetailPage() {
   const [creatingMatch, setCreatingMatch] = useState(false);
   const [matchInvitations, setMatchInvitations] = useState<any>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Arbiter share links modal state
+  const [selectedMatchForShare, setSelectedMatchForShare] = useState<any | null>(null);
 
   // Player registration state (Bulk, Grid, Single)
   const [showPlayerModal, setShowPlayerModal] = useState(false);
@@ -618,12 +622,23 @@ export default function TournamentDetailPage() {
                               )}
 
                               {isArbiter && (
-                                <Link
-                                  href={`/arbiter/match/${m.id}`}
-                                  className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors"
-                                >
-                                  Arbiter Console
-                                </Link>
+                                <>
+                                  <button
+                                    onClick={() => setSelectedMatchForShare(m)}
+                                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm hover:scale-[1.02]"
+                                    title="Send White & Black invitation links to players"
+                                  >
+                                    <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span>Send Links</span>
+                                  </button>
+
+                                  <Link
+                                    href={`/arbiter/match/${m.id}`}
+                                    className="px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors"
+                                  >
+                                    Arbiter Console
+                                  </Link>
+                                </>
                               )}
                             </>
                           )}
@@ -1170,6 +1185,19 @@ export default function TournamentDetailPage() {
           </div>
         </div>
       )}
+      {/* Arbiter Share Links Modal */}
+      <ShareMatchLinksModal
+        isOpen={!!selectedMatchForShare}
+        onClose={() => setSelectedMatchForShare(null)}
+        matchId={selectedMatchForShare?.id || null}
+        matchSummary={{
+          whitePlayerName: selectedMatchForShare?.whitePlayerName,
+          blackPlayerName: selectedMatchForShare?.blackPlayerName,
+          tournamentName: tournament?.name,
+          roundNumber: activeRoundNumber,
+          timeControl: tournament?.timeControl,
+        }}
+      />
     </div>
   );
 }
