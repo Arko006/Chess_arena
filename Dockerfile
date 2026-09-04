@@ -1,7 +1,7 @@
 # ---- Base Stage ----
 FROM node:20-alpine AS base
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat openssl
 
 # ---- Dependencies Stage ----
 FROM base AS deps
@@ -24,6 +24,7 @@ RUN npm run build
 # ---- Production Runner Stage ----
 FROM node:20-alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl
 
 ENV NODE_ENV=production
 ENV PORT=3000
